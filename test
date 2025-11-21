@@ -61,6 +61,55 @@ Update the YAML to include:
   - "default/*"
   - "istio-system/*"
 
+he Sidecar configuration restricts outgoing traffic to only the test and istio-system namespaces. Traffic to the default namespace (where the Bookinfo App resides) should now be blocked.
+
+Test the Bookinfo Application from the test pod again. It should fail with an error: Empty reply from server.
+
+root@controlplane ~ ✖ kubectl exec -ti -n test test -- /bin/bash
+root@test:/# curl --head productpage.default.svc.cluster.local:9080
+curl: (52) Empty reply from server
+
+
+
+Modify the Sidecar configuration to apply only to pods with the label run: test in the test namespace. Reapply the configuration.
+
+
+
+
+Does the Sidecar have the workloadSelector with run: test?
+
+Now, check access to the Bookinfo Application from the test pod again.
+
+It should now fail due to the workloadSelector restriction.
+
+root@controlplane ~ ➜   kubectl exec -ti -n test test -- /bin/bash
+root@test:/# curl --head productpage.default.svc.cluster.local:9080
+curl: (52) Empty reply from server
+
+
+
+Create a new pod named nginx in the test namespace using the nginx image.
+
+Verify that the new nginx pod can access the Bookinfo Application successfully.
+
+
+The new nginx pod can access the Bookinfo Application because the Sidecar configuration's workloadSelector only applies to pods with 
+the label run: test. The nginx pod has a different label and thus isn't affected by the restrictions.
+
+
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: test
+spec:
+  workloadSelector:
+    labels:
+      run: test
+  egress:
+  - hosts:
+    - "./*"
+    - "istio-system/*"
 
 
 
