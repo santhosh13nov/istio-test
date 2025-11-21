@@ -1,0 +1,67 @@
+kubectl run test --image=nginx ns test
+
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+
+Create and apply Peer Authentication configuration using the below YAML file:
+
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: default
+spec:
+  mtls:
+    mode: STRICT
+
+
+
+Note: We’ll talk more about this in the Security section of this course.
+
+Now, you need to check if the Bookinfo Application is still reachable from the test Pod.
+
+Run:
+
+root@controlplane ~ ➜  kubectl exec -ti -n test test -- /bin/bash
+root@test:/# curl --head productpage.default.svc.cluster.local:9080
+curl: (56) Recv failure: Connection reset by peer
+
+This is failing because the Peer Authentication policy has a STRICT mode for mTLS, which means that it only accepts encrypted traffic. That can only be done by the Sidecar Proxy, and if you recall, the test namespace is not labeled with Istio.
+
+root@controlplane ~ ✖  kubectl get ns --show-labels
+NAME              STATUS   AGE   LABELS
+default           Active   31m   istio-injection=enabled,kubernetes.io/metadata.name=default
+...
+test              Active   18m   kubernetes.io/metadata.name=test
+
+==================
+There may be situations where you need to override the Sidecar’s default behavior by restricting outgoing traffic for a specific namespace or workload. 
+You can do this by creating a Sidecar configuration to override any namespace’s default Sidecar behavior.
+
+Create and apply a Sidecar configuration in the test namespace to restrict outgoing traffic to the test and istio-system namespaces using the following YAML:
+
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: test
+spec:
+  egress:
+  - hosts:
+    - "./*"
+    - "istio-system/*"
+
+
+
+Adjust the Sidecar configuration to allow outgoing traffic to the default namespace and reapply it.
+
+Update the YAML to include:
+
+- hosts:
+  - "./*"
+  - "default/*"
+  - "istio-system/*"
+
+
+
+
+
